@@ -55,7 +55,7 @@ core.add = function(unit)
     end
 
     -- If this is a boss unit, start boss combat
-    if isBoss then
+    if isBoss and distanceValue < 100 then
         local isDead = UnitIsDead(unit)
         -- boss已死
         if isDead then
@@ -79,8 +79,8 @@ core.add = function(unit)
 end
 
 -- unitstr
-core:RegisterEvent("UPDATE_MOUSEOVER_UNIT")
-core:RegisterEvent("PLAYER_TARGET_CHANGED")
+--core:RegisterEvent("UPDATE_MOUSEOVER_UNIT")
+--core:RegisterEvent("PLAYER_TARGET_CHANGED")
 core:RegisterEvent("PLAYER_ENTERING_WORLD")
 
 -- arg1
