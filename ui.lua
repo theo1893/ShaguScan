@@ -21,7 +21,6 @@ ui.background = {
 }
 
 ui.frames = {}
-ui.timers = {}
 
 ui.CreateRoot = function(parent, caption)
     local frame = CreateFrame("Frame", "ShaguScan" .. caption, parent)
@@ -58,6 +57,7 @@ ui.CreateRoot = function(parent, caption)
     -- assign/initialize elements
     frame.CreateBar = ui.CreateBar
     frame.frames = {}
+    frame.timers = {}
 
     -- create title text
     frame.caption = frame:CreateFontString(nil, "HIGH", "GameFontWhite")
@@ -297,12 +297,8 @@ end
 
 ui:SetAllPoints()
 ui:SetScript("OnUpdate", function()
-    if (this.tick or 1) > GetTime() then
-        return
-    else
-        this.tick = GetTime() + .5
-    end
-
+    -- Check boss combat status from core
+    local isBossCombat = ShaguScan.core and ShaguScan.core.isBossCombat or false
     -- remove old leftover frames
     for caption, root in pairs(ui.frames) do
         if not ShaguScan_db.config[caption] then
@@ -317,12 +313,14 @@ ui:SetScript("OnUpdate", function()
         ui.frames[caption] = ui.frames[caption] or ui:CreateRoot(caption)
         local root = ui.frames[caption]
 
-        -- skip if locked (due to moving)
-        if root.lock then
-            return
+        -- Update frame visibility based on boss combat status
+        if isBossCombat then
+            root:Show()
+        else
+            root:Hide()
         end
 
-        -- update position based on config
+        -- skip if locked (due to moving)
         if not root.pos or root.pos ~= config.anchor .. config.x .. config.y .. config.scale then
             root.pos = config.anchor .. config.x .. config.y .. config.scale
             root:ClearAllPoints()
@@ -382,17 +380,17 @@ ui:SetScript("OnUpdate", function()
 
                     if exist then
                         -- 初始化三层嵌套结构
-                        if not ui.timers[guid] then
-                            ui.timers[guid] = {}
+                        if not root.timers[guid] then
+                            root.timers[guid] = {}
                         end
 
                         -- 维护guid -> aura -> timer的映射
-                        if ui.timers[guid][matched_aura_id] then
-                            remaining_time = total_duration - (current_time - ui.timers[guid][matched_aura_id])
+                        if root.timers[guid][matched_aura_id] then
+                            remaining_time = total_duration - (current_time - root.timers[guid][matched_aura_id])
                             remaining_time = math.max(0, remaining_time)
                         else
                             -- 新检测到的aura，开始追踪
-                            ui.timers[guid][matched_aura_id] = current_time
+                            root.timers[guid][matched_aura_id] = current_time
                             remaining_time = total_duration
                         end
 
@@ -404,16 +402,16 @@ ui:SetScript("OnUpdate", function()
                         })
                     else
                         -- aura不再存在，清理timer
-                        if ui.timers[guid] and ui.timers[guid][matched_aura_id] then
-                            ui.timers[guid][matched_aura_id] = nil
+                        if root.timers[guid] and root.timers[guid][matched_aura_id] then
+                            root.timers[guid][matched_aura_id] = nil
                             -- 清理空的guid条目
                             local has_timers = false
-                            for _ in pairs(ui.timers[guid]) do
+                            for _ in pairs(root.timers[guid]) do
                                 has_timers = true
                                 break
                             end
                             if not has_timers then
-                                ui.timers[guid] = nil
+                                root.timers[guid] = nil
                             end
                         end
                     end
@@ -425,13 +423,16 @@ ui:SetScript("OnUpdate", function()
                         remaining_time = 0,
                     })
                 end
+            else
+                -- 不可见, 直接清空timer
+               root.timers[guid] = nil
             end
         end
 
         -- 清理不再被追踪的单位的timer
-        for guid in pairs(ui.timers) do
+        for guid in pairs(root.timers) do
             if not ShaguScan.core.guids[guid] then
-                ui.timers[guid] = nil
+                root.timers[guid] = nil
             end
         end
 
